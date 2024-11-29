@@ -78,31 +78,52 @@ class SQLiteDemo:
             console.print(table)
 
     def demo_transactions(self):
-        """Demonstrate transaction handling"""
+        """Demonstrate transaction handling with a laptop price update"""
         with console.status("[bold green]Testing transaction handling..."):
+            # Get current laptop price
+            self.cursor.execute("SELECT price FROM products WHERE name = ?", ("Laptop",))
+            initial_price = self.cursor.fetchone()[0]
+
             try:
                 self.cursor.execute("BEGIN TRANSACTION")
 
+                # Attempt to update the laptop price
                 self.cursor.execute("""
-                INSERT INTO products (name, price, in_stock)
-                VALUES (?, ?, ?)
-                """, ("Test Product", 50.00, True))
-                product_id = self.cursor.lastrowid
+                UPDATE products
+                SET price = price + 100.00
+                WHERE name = ?
+                """, ("Laptop",))
 
-                self.cursor.execute("""
-                INSERT INTO orders (product_id, quantity)
-                VALUES (?, ?)
-                """, (product_id, 5))
-
-                if random.random() < 0.5:
+                if random.random() < 0.5:  # 50% chance of failure
                     raise Exception("Simulated random transaction error")
 
                 self.cursor.execute("COMMIT")
-                rprint("[green]Transaction completed successfully[/green]")
+
+                # Show success message with price change
+                self.cursor.execute("SELECT price FROM products WHERE name = ?", ("Laptop",))
+                new_price = self.cursor.fetchone()[0]
+                table = Table(title="Transaction Completed Successfully")
+                table.add_column("Status", style="green")
+                table.add_column("Initial Price", style="cyan")
+                table.add_column("New Price", style="cyan")
+                table.add_row("SUCCESS", f"${initial_price:.2f}", f"${new_price:.2f}")
+                console.print(table)
 
             except Exception as e:
                 self.cursor.execute("ROLLBACK")
-                rprint(f"[red]Transaction rolled back: {e}[/red]")
+                # Show failure message with price verification
+                self.cursor.execute("SELECT price FROM products WHERE name = ?", ("Laptop",))
+                current_price = self.cursor.fetchone()[0]
+                table = Table(title="Transaction Rolled Back")
+                table.add_column("Status", style="red")
+                table.add_column("Error", style="yellow")
+                table.add_column("Price", style="cyan")
+                table.add_row(
+                    "FAILED",
+                    str(e),
+                    f"Price remained at ${current_price:.2f} (unchanged)"
+                )
+                console.print(table)
 
     def demo_full_text_search(self):
         """Demonstrate full-text search capabilities"""
